@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Noir Concierge — AI proof of concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F0EA; --surface:#FFFFFF; --sunk:#EFE6DF; --ink:#241A26; --muted:#6E5F70; --line:#E2D6CD;
+  --accent:#7A3B57; --accent-ink:#FFFFFF; --gold:#9A7A45;
+  --ok:#2F6E4E; --ok-bg:#E3F0E8; --warn:#8E5F12; --warn-bg:#F7ECD6; --bad:#9B2F2F; --bad-bg:#F6E0DE;
+  --bubble-bot:#F1E9E3; --bubble-me:#7A3B57; --bubble-me-ink:#FFFFFF;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#181118; --surface:#231A24; --sunk:#1D151E; --ink:#F2E9E2; --muted:#B4A3B1; --line:#3A2D3B;
+    --accent:#D69BB5; --accent-ink:#2A1726; --gold:#D8BC86;
+    --ok:#8FD1AE; --ok-bg:#1F3329; --warn:#E8C27A; --warn-bg:#3A2E18; --bad:#F0A39E; --bad-bg:#3D2020;
+    --bubble-bot:#2E2330; --bubble-me:#D69BB5; --bubble-me-ink:#2A1726;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#181118; --surface:#231A24; --sunk:#1D151E; --ink:#F2E9E2; --muted:#B4A3B1; --line:#3A2D3B;
+  --accent:#D69BB5; --accent-ink:#2A1726; --gold:#D8BC86;
+  --ok:#8FD1AE; --ok-bg:#1F3329; --warn:#E8C27A; --warn-bg:#3A2E18; --bad:#F0A39E; --bad-bg:#3D2020;
+  --bubble-bot:#2E2330; --bubble-me:#D69BB5; --bubble-me-ink:#2A1726;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:"Bodoni Moda",Didot,"Times New Roman",serif;font-weight:400;margin:0;line-height:1.1}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* Hero */
+.hero{padding:56px 0 36px;display:grid;gap:28px;grid-template-columns:1.4fr 1fr;align-items:end}
+.hero h1{font-size:clamp(2.4rem,5.6vw,4.6rem);letter-spacing:-.01em}
+.hero p{color:var(--muted);max-width:52ch;margin:18px 0 0;font-size:1.05rem}
+.clock{border-left:1px solid var(--line);padding-left:24px}
+.clock .time{font-family:"Bodoni Moda",serif;font-size:clamp(3rem,7vw,5.2rem);line-height:1;font-variant-numeric:tabular-nums}
+.clock .sub{color:var(--muted);font-size:.92rem;margin-top:8px}
+.poc-tag{display:inline-block;font-size:.8rem;color:var(--gold);border:1px solid currentColor;border-radius:999px;padding:3px 12px;margin-bottom:18px}
+
+/* Stats */
+.stats{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:36px}
+.stat{flex:1 1 160px;padding:16px 20px 16px 0}
+.stat b{display:block;font-family:"Bodoni Moda",serif;font-weight:400;font-size:2rem;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.88rem}
+
+/* Main grid */
+.grid{display:grid;grid-template-columns:400px 1fr;gap:28px;align-items:start}
+.panel-title{font-size:1.5rem;margin-bottom:6px}
+.panel-sub{color:var(--muted);font-size:.92rem;margin:0 0 14px}
+
+/* Chat (guest view) */
+.phone{background:var(--surface);border:1px solid var(--line);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;height:620px;box-shadow:0 30px 60px -40px rgba(60,20,50,.45)}
+.phone-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:"Bodoni Moda",serif;font-size:1.2rem}
+.phone-head .n{font-weight:600}
+.phone-head .s{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.mode{margin-left:auto;font-size:.75rem;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:none;cursor:pointer;color:var(--muted)}
+.msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:84%;padding:10px 14px;border-radius:18px;font-size:.94rem;white-space:pre-wrap;word-wrap:break-word}
+.msg.bot{background:var(--bubble-bot);border-bottom-left-radius:6px;align-self:flex-start}
+.msg.me{background:var(--bubble-me);color:var(--bubble-me-ink);border-bottom-right-radius:6px;align-self:flex-end}
+.msg.sys{align-self:center;background:none;color:var(--muted);font-size:.8rem;text-align:center;max-width:90%}
+.typing{display:inline-flex;gap:4px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:b 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,60%,100%{opacity:.3}30%{opacity:1}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:0 18px 10px}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.82rem;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:10px 16px}
+.btn{border:0;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:10px 18px;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+.gate{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:32px;gap:14px}
+.gate h3{font-size:1.6rem}
+.gate p{color:var(--muted);font-size:.92rem;margin:0;max-width:30ch}
+
+/* Console (staff view) */
+.console{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{background:none;border:0;padding:14px 18px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;font-weight:500;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpanel{padding:20px;min-height:540px}
+.lead{border-bottom:1px solid var(--line);padding:16px 0;display:grid;grid-template-columns:1fr auto;gap:6px 16px}
+.lead:first-child{padding-top:0}
+.lead .who{font-weight:600}
+.lead .meta{color:var(--muted);font-size:.88rem}
+.lead .reasons{grid-column:1/-1;font-size:.86rem;color:var(--muted);margin:2px 0 0;padding-left:18px}
+.lead .acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.lead .acts button{font-size:.82rem;padding:6px 14px}
+.badge{align-self:start;font-size:.78rem;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.badge.low{background:var(--ok-bg);color:var(--ok)}
+.badge.medium{background:var(--warn-bg);color:var(--warn)}
+.badge.high{background:var(--bad-bg);color:var(--bad)}
+.status{font-size:.82rem;color:var(--muted)}
+.new{animation:flash 1.6s ease-out}
+@keyframes flash{from{background:color-mix(in srgb,var(--accent) 14%,transparent)}to{background:transparent}}
+.empty{color:var(--muted);text-align:center;padding:60px 20px}
+label.f{display:block;font-size:.85rem;font-weight:600;margin:0 0 6px}
+.field{width:100%;border:1px solid var(--line);background:var(--sunk);border-radius:10px;padding:10px 12px;margin-bottom:14px}
+textarea.field{min-height:120px;resize:vertical}
+.examples{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.result{margin-top:18px;border:1px solid var(--line);border-radius:12px;padding:16px}
+.meter{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden;margin:10px 0}
+.meter i{display:block;height:100%;border-radius:99px;transition:width .5s}
+.small{font-size:.85rem;color:var(--muted)}
+
+/* Info sections */
+.info{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;padding:56px 0;border-top:1px solid var(--line);margin-top:56px}
+.info h3{font-size:1.4rem;margin-bottom:10px}
+.info p,.info li{color:var(--muted);font-size:.94rem}
+.info ul{padding-left:18px;margin:0}
+.info li{margin-bottom:6px}
+footer{padding:24px 0 40px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line)}
+
+@media (max-width:960px){
+  .hero{grid-template-columns:1fr}
+  .clock{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:20px}
+  .grid{grid-template-columns:1fr}
+  .phone{height:560px}
+  .info{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <span class="poc-tag">AI proof of concept</span>
+      <h1>A concierge that never misses a late-night enquiry</h1>
+      <p>Most enquiries arrive after the phones go quiet. This demo answers guests instantly, collects booking requests, and screens each one for risk before your team picks up the phone.</p>
+    </div>
+    <div class="clock" aria-live="off">
+      <div class="time" id="clock">--:--</div>
+      <div class="sub">London time. The concierge is answering right now.</div>
+    </div>
+  </header>
+
+  <section class="stats" aria-label="Live demo counters">
+    <div class="stat"><b id="sMsgs">0</b><span>Guest messages answered</span></div>
+    <div class="stat"><b id="sLeads">0</b><span>Booking requests captured</span></div>
+    <div class="stat"><b id="sFlags">0</b><span>Requests flagged for review</span></div>
+    <div class="stat"><b id="sResp">—</b><span>Average reply time</span></div>
+  </section>
+
+  <main class="grid">
+    <!-- Guest side -->
+    <section aria-labelledby="guestTitle">
+      <h2 class="panel-title" id="guestTitle">What the guest sees</h2>
+      <p class="panel-sub">Try asking about areas, discretion, or say you'd like to book.</p>
+      <div class="phone">
+        <div class="phone-head">
+          <div class="avatar" aria-hidden="true">N</div>
+          <div>
+            <div class="n" id="agencyName">Concierge</div>
+            <div class="s"><span class="dot"></span>Online now</div>
+          </div>
+          <button class="mode" id="modeBtn" type="button" title="Switch between live AI and scripted demo">Scripted demo</button>
+        </div>
+        <div class="gate" id="gate">
+          <h3>Adults only</h3>
+          <p>This chat is for people aged 18 or over. Please confirm your age to continue.</p>
+          <button class="btn" id="ageYes" type="button">I'm 18 or over</button>
+          <button class="btn ghost" id="ageNo" type="button">I'm under 18</button>
+        </div>
+        <div class="msgs" id="msgs" hidden aria-live="polite"></div>
+        <div class="chips" id="chips" hidden>
+          <button class="chip" type="button">I'd like to book for tonight</button>
+          <button class="chip" type="button">Which areas do you cover?</button>
+          <button class="chip" type="button">How discreet are you?</button>
+          <button class="chip" type="button">What are your rates?</button>
+          <button class="chip" type="button">Cancellation policy</button>
+        </div>
+        <form class="composer" id="composer" hidden autocomplete="off">
+          <input id="input" placeholder="Type a message" aria-label="Message">
+          <button class="btn" id="send" type="submit">Send</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Staff side -->
+    <section aria-labelledby="staffTitle">
+      <h2 class="panel-title" id="staffTitle">What your team sees</h2>
+      <p class="panel-sub">Every booking request lands here already screened, with a suggested next step.</p>
+      <div class="console">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" aria-controls="pLeads" id="tLeads">Booking requests <span id="leadCount"></span></button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="pScreen" id="tScreen">Screen a message</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="pBlock" id="tBlock">Block list</button>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="pLeads" aria-labelledby="tLeads">
+          <div id="leads"></div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="pScreen" aria-labelledby="tScreen" hidden>
+          <p class="small" style="margin-top:0">Paste any enquiry from email, SMS or WhatsApp to get a risk check.</p>
+          <div class="examples">
+            <button class="chip" type="button" data-ex="0">Normal enquiry</button>
+            <button class="chip" type="button" data-ex="1">Haggling, no ID</button>
+            <button class="chip" type="button" data-ex="2">Abusive tone</button>
+          </div>
+          <label class="f" for="scPhone">Phone number</label>
+          <input class="field" id="scPhone" placeholder="e.g. 07700 900456">
+          <label class="f" for="scMsg">Message</label>
+          <textarea class="field" id="scMsg" placeholder="Paste the enquiry here"></textarea>
+          <button class="btn" id="scBtn" type="button">Check request</button>
+          <div id="scOut"></div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="pBlock" aria-labelledby="tBlock" hidden>
+          <p class="small" style="margin-top:0">Numbers here are flagged automatically on any new request. Declining a request with "Decline and block" adds it here.</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <input class="field" id="blkInput" placeholder="Add a number" style="margin:0">
+            <button class="btn" id="blkAdd" type="button">Add</button>
+          </div>
+          <div id="blkList"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="info" aria-label="About this proof of concept">
+    <div>
+      <h3>What this proves</h3>
+      <p>Guests get an answer in seconds at any hour, booking details are collected in a consistent format, and staff only spend time on requests worth confirming. In a pilot we would measure after-hours leads captured, reply time, and how many risky requests were stopped early.</p>
+    </div>
+    <div>
+      <h3>Safeguards built in</h3>
+      <ul>
+        <li>An 18+ age gate before any conversation starts.</li>
+        <li>The concierge never discusses explicit content and never confirms a booking itself; a person always does.</li>
+        <li>Anything suggesting a minor or someone being pressured is blocked and flagged for immediate review.</li>
+        <li>Abusive, haggling or unverifiable requests are flagged before anyone is put at risk.</li>
+        <li>Guest details are kept to the minimum needed, ready for UK GDPR controls.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Phase 2 ideas</h3>
+      <ul>
+        <li>Connect to WhatsApp Business and the website's booking form.</li>
+        <li>Shared block list and team notifications.</li>
+        <li>AI-written location pages for local SEO.</li>
+        <li>Profile copy and translation assistant.</li>
+        <li>Weekly enquiry analytics report.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Proof of concept prepared for the agency. All names, numbers and booking requests shown are fictional sample data; agency details are placeholders to be replaced with the real policies.
+  </footer>
+</div>
+
+<script>
+/* ---------- Sample settings: replace with the agency's real details ---------- */
+const AGENCY = {
+  name: "Escorts Noir Concierge",
+  city: "London",
+  hours: "The chat answers 24/7. Our team confirms bookings between 10am and 4am.",
+  areas: ["Mayfair","Kensington","Chelsea","Knightsbridge","Marylebone","Canary Wharf","the City","Heathrow hotels"],
+  booking: "Minimum booking is 1 hour. Every booking is confirmed by a call or WhatsApp from our team. First-time clients may be asked for photo ID.",
+  rates: "Rates are listed on each companion's profile and depend on duration. Our team confirms the total before anything is booked.",
+  deposit: "A deposit may be needed for first-time clients or bookings over 3 hours.",
+  cancellation: "Free cancellation up to 2 hours before the booking. Later cancellations may be charged.",
+  discretion: "Messages come from an unbranded number, nothing is shared with third parties, and your details are deleted after 30 days unless you ask us to keep them.",
+  policies: "Clients must be 18 or over. All companions are independent adults who choose their own bookings and can decline any booking. Respectful behaviour is required; abusive clients are blocked."
+};
+const SAMPLE_BLOCKED = ["07700900123"];
+
+/* ---------- State ---------- */
+const $ = id => document.getElementById(id);
+let sample = null, useAI = false, busy = false;
+let convo = [];                 // {role:'user'|'assistant', content}
+let slots = {}, step = null;    // scripted booking flow
+let stats = {msgs:0, leads:0, flags:0, times:[]};
+let leads = [];
+let blocked = load("noir_blocked", SAMPLE_BLOCKED.slice());
+
+function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+const norm = p => (p||"").replace(/[^\d+]/g,"").replace(/^\+44/,"0");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+$("agencyName").textContent = AGENCY.name;
+
+/* ---------- Clock ---------- */
+function tick(){
+  try{ $("clock").textContent = new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/London"}).format(new Date()); }
+  catch(e){ $("clock").textContent = new Date().toTimeString().slice(0,5); }
+}
+tick(); setInterval(tick, 15000);
+
+function renderStats(){
+  $("sMsgs").textContent = stats.msgs;
+  $("sLeads").textContent = stats.leads;
+  $("sFlags").textContent = stats.flags;
+  $("sResp").textContent = stats.times.length ? (stats.times.reduce((a,b)=>a+b,0)/stats.times.length/1000).toFixed(1)+"s" : "—";
+}
+
+/* ---------- AI availability ---------- */
+(async () => {
+  try{
+    if (window.claude && claude.use){
+      sample = await claude.use("sample");
+      if (sample){ useAI = true; }
+    }
+  }catch(e){ sample = null; }
+  updateMode();
+})();
+function updateMode(){
+  const b = $("modeBtn");
+  b.textContent = useAI ? "Live AI" : "Scripted demo";
+  b.hidden = false;
+}
+$("modeBtn").onclick = () => {
+  if (!sample){ addMsg("sys","Live AI isn't available in this view, so the scripted demo is running. The flow and screening work the same way."); return; }
+  useAI = !useAI; updateMode();
+  addMsg("sys", useAI ? "Switched to live AI replies." : "Switched to scripted demo replies.");
+};
+
+/* ---------- Age gate ---------- */
+$("ageYes").onclick = () => {
+  $("gate").hidden = true; $("msgs").hidden = false; $("chips").hidden = false; $("composer").hidden = false;
+  addMsg("bot", `Good evening, and welcome. I'm the online concierge for ${AGENCY.name.replace(/ Concierge$/,"")}. I can help with bookings, areas we cover, and any questions about how we work. How can I help?`);
+  $("input").focus();
+};
+$("ageNo").onclick = () => {
+  $("gate").innerHTML = '<h3>Sorry</h3><p>This service is only for adults. If you need someone to talk to, Childline is free and confidential on 0800 1111.</p>';
+};
+
+/* ---------- Chat UI ---------- */
+function addMsg(who, text){
+  const d = document.createElement("div");
+  d.className = "msg " + who;
+  d.textContent = text;
+  $("msgs").appendChild(d);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+  return d;
+}
+function typing(){
+  const d = document.createElement("div");
+  d.className = "msg bot";
+  d.innerHTML = '<span class="typing" aria-label="Typing"><i></i><i></i><i></i></span>';
+  $("msgs").appendChild(d); $("msgs").scrollTop = $("msgs").scrollHeight;
+  return d;
+}
+$("chips").addEventListener("click", e => { if (e.target.classList.contains("chip")) send(e.target.textContent); });
+$("composer").addEventListener("submit", e => { e.preventDefault(); send($("input").value); });
+
+async function send(text){
+  text = (text||"").trim();
+  if (!text || busy) return;
+  busy = true; $("send").disabled = true; $("input").value = "";
+  addMsg("me", text);
+  convo.push({role:"user", content:text});
+  const t0 = performance.now();
+  const tEl = typing();
+  let out;
+  try{
+    out = useAI ? await aiReply() : await scriptedReply(text);
+  }catch(err){
+    out = await scriptedReply(text);
+  }
+  tEl.remove();
+  addMsg("bot", out.reply);
+  convo.push({role:"assistant", content:out.reply});
+  stats.msgs++; stats.times.push(performance.now()-t0);
+  if (out.safety && out.safety !== "none") handleSafety(out.safety, text);
+  if (out.lead) await createLead(out.lead, true);
+  renderStats();
+  busy = false; $("send").disabled = false; $("input").focus();
+}
+
+/* ---------- Live AI reply ---------- */
+async function aiReply(){
+  const transcript = convo.slice(-14).map(m => (m.role==="user"?"Guest: ":"Concierge: ") + m.content).join("\n");
+  const prompt = `You are the online concierge for ${AGENCY.name}, a ${AGENCY.city} companionship agency. Write as a polite, discreet, professional front-desk assistant in British English. Keep replies to 1-3 short sentences.
+
+AGENCY FACTS (the only source of truth; never invent prices, names, availability or policies):
+- Hours: ${AGENCY.hours}
+- Areas: ${AGENCY.areas.join(", ")}
+- Booking: ${AGENCY.booking}
+- Rates: ${AGENCY.rates}
+- Deposit: ${AGENCY.deposit}
+- Cancellation: ${AGENCY.cancellation}
+- Discretion: ${AGENCY.discretion}
+- Policies: ${AGENCY.policies}
+
+RULES:
+- Never describe, list or discuss sexual services or explicit content. If asked, say politely that you can only help with booking time, areas, policies and general questions. safety="explicit".
+- If the guest says they are under 18, politely end the conversation. safety="underage_client".
+- If anything suggests a minor, or anyone being forced or pressured, refuse firmly. safety="minor" or "coercion".
+- If the guest is abusive or threatening, calmly restate the respect policy. safety="abuse".
+- To take a booking request, collect: name, preferred date and time, area or hotel, duration, contact number. Ask for one missing item at a time.
+- When all five are collected, summarise them and say the team will call or WhatsApp to confirm. Only in that message set "lead". Never confirm a booking yourself.
+- Otherwise set safety="none" and lead=null.
+
+Respond with ONLY a JSON object, no other text:
+{"reply": string, "lead": null | {"name": string, "when": string, "area": string, "duration": string, "phone": string, "notes": string}, "safety": "none"|"explicit"|"underage_client"|"minor"|"coercion"|"abuse"}
+
+CONVERSATION SO FAR:
+${transcript}
+
+Write the concierge's next message as JSON.`;
+  const r = await sample.json(prompt, {modelTier:"quick", cache:false});
+  if (!r || typeof r.reply !== "string") throw new Error("bad");
+  if (r.lead && !(r.lead.name && r.lead.phone)) r.lead = null;
+  return r;
+}
+
+/* ---------- Scripted fallback ---------- */
+const has = (t, words) => words.some(w => /^\w.*\w$|^\w$/.test(w)
+  ? new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\b").test(t)
+  : t.includes(w));
+const MINOR = ["schoolgirl","school girl","underage","under age","barely legal","teen","young looking","young-looking","16 year","17 year","16yo","17yo","child"];
+const COERCE = ["forced","trafficked","she has no choice","doesn't want to","make her"];
+const ABUSE = ["bitch","slut","whore","stupid","idiot","or else","you'll regret","shut up","f*** you","fuck you"];
+const EXPLICIT = ["sex","naked","nude","oral","blowjob","bj","gfe","pse","anal","what does she do","services","extras","full service","happy ending"];
+
+function scriptedReply(raw){
+  const t = raw.toLowerCase();
+  return new Promise(res => setTimeout(() => res(scriptedLogic(t, raw)), 500 + Math.random()*500));
+}
+function scriptedLogic(t, raw){
+  if (/\b(i'?m|i am)\s*(1[0-7]|[1-9])\b/.test(t) || has(t,["under 18","i'm a minor","im 17","im 16"]))
+    return {reply:"Thank you for letting me know, but this service is strictly for adults aged 18 and over, so I have to end our conversation here.", safety:"underage_client"};
+  if (has(t, MINOR))
+    return {reply:"I can't help with that. Any request that refers to anyone under 18 is refused and reported to our team.", safety:"minor"};
+  if (has(t, COERCE))
+    return {reply:"Everyone we work with is an independent adult who chooses their own bookings. I can't help with this request, and it has been passed to our team.", safety:"coercion"};
+  if (has(t, ABUSE))
+    return {reply:"We ask everyone to keep conversations respectful. Abusive messages lead to the number being blocked. I'm happy to help if you'd like to continue politely.", safety:"abuse"};
+  if (has(t, EXPLICIT))
+    return {reply:"I can only help with booking time, the areas we cover and our policies. What happens during a booking isn't something I can discuss here. Would you like to make a booking request?", safety:"explicit"};
+
+  // booking slot filling
+  const phone = (raw.match(/(\+44\s?7\d{3}|\b07\d{3})[\s-]?\d{3}[\s-]?\d{3}/)||[])[0];
+  if (step){
+    if (step==="name") slots.name = raw.replace(/^(my name is|i'm|i am|it's|its|call me)\s+/i,"").slice(0,40);
+    else if (step==="when") slots.when = raw;
+    else if (step==="area") slots.area = raw;
+    else if (step==="duration") slots.duration = raw;
+    else if (step==="phone"){
+      if (!phone) return {reply:"Could you share a UK mobile number so our team can confirm? For example 07700 900456.", safety:"none"};
+      slots.phone = phone;
+    }
+    return nextSlot();
+  }
+  if (has(t,["book","booked","booking","available","availability","tonight","tomorrow","appointment","see someone","meet"])){
+    slots = {}; return nextSlot(true);
+  }
+  if (has(t,["area","areas","where","location","cover","covered","hotel","outcall","incall","come to"]))
+    return {reply:`We cover ${AGENCY.areas.slice(0,-1).join(", ")} and ${AGENCY.areas.at(-1)}. If you're elsewhere in ${AGENCY.city}, ask and our team will check.`, safety:"none"};
+  if (has(t,["rate","rates","price","prices","cost","costs","how much","£","fee","fees"]))
+    return {reply:AGENCY.rates + " " + AGENCY.deposit, safety:"none"};
+  if (has(t,["discreet","discretion","private","privacy","data","confidential"]))
+    return {reply:AGENCY.discretion, safety:"none"};
+  if (has(t,["cancel","refund","change my"]))
+    return {reply:AGENCY.cancellation, safety:"none"};
+  if (has(t,["hours","opening","open","what time","when are you"]))
+    return {reply:AGENCY.hours, safety:"none"};
+  if (has(t,["deposit"]))
+    return {reply:AGENCY.deposit, safety:"none"};
+  if (has(t,["id","verify","verification","safe"]))
+    return {reply:AGENCY.booking + " " + AGENCY.policies.split(". ").slice(1).join(". "), safety:"none"};
+  if (has(t,["hi","hello","hey","good evening","good morning"]))
+    return {reply:"Hello. I can help with a booking request, the areas we cover, rates or our policies. What would you like to know?", safety:"none"};
+  if (has(t,["thank you","thanks","cheers","ty"]))
+    return {reply:"You're welcome. Is there anything else I can help with?", safety:"none"};
+  return {reply:"I'm not sure I can help with that here. I can take a booking request or answer questions about areas, rates, discretion and cancellations.", safety:"none"};
+}
+function nextSlot(start){
+  const order = [
+    ["name","Of course. May I take your first name?"],
+    ["when","Thank you. What date and time would you like?"],
+    ["area","Which area or hotel will you be in?"],
+    ["duration","And how long would you like to book for? The minimum is 1 hour."],
+    ["phone","Lastly, what's the best mobile number for our team to confirm on?"]
+  ];
+  for (const [k,q] of order){
+    if (!slots[k]){ step = k; return {reply: q, safety:"none"}; }
+  }
+  const lead = {...slots, notes:""};
+  step = null; slots = {};
+  return {
+    reply:`Thank you, ${lead.name}. Here's your request:\n${lead.when}, ${lead.area}, ${lead.duration}.\nOur team will call or WhatsApp ${lead.phone} shortly to confirm. Nothing is booked until they do.`,
+    lead, safety:"none"
+  };
+}
+
+function handleSafety(kind, text){
+  const labels = {explicit:"Asked about explicit content", underage_client:"Guest said they are under 18", minor:"Message references a minor", coercion:"Possible coercion mentioned", abuse:"Abusive language"};
+  if (kind === "explicit") return; // handled in chat, not a lead
+  stats.flags++;
+  leads.unshift({
+    id:Date.now(), name:"Chat guest", when:"—", area:"—", duration:"—", phone:"Not given", fresh:true,
+    status:"open", alert:true,
+    screen:{risk:"high", score: kind==="abuse"?75:100, reasons:[labels[kind] || kind, "Chat message: \u201C" + text.slice(0,90) + (text.length>90?"…":"") + "\u201D"],
+      action: kind==="abuse" ? "Decline and block" : "Escalate to a manager now"}
+  });
+  renderLeads();
+}
+
+/* ---------- Screening ---------- */
+function heuristicScreen(msg, phone){
+  const t = (msg||"").toLowerCase(); const reasons = []; let s = 0;
+  const p = norm(phone);
+  if (p && blocked.includes(p)){ s += 60; reasons.push("Number is on the block list"); }
+  if (has(t, MINOR)){ return {risk:"high", score:100, reasons:["Request references someone under 18"], action:"Decline, block and escalate to a manager"}; }
+  if (has(t, COERCE)){ s += 70; reasons.push("Wording suggests someone may be pressured"); }
+  if (has(t, ABUSE)){ s += 45; reasons.push("Abusive or threatening language"); }
+  if (has(t,["unprotected","no protection","without protection","bareback"])){ s += 45; reasons.push("Asks for unsafe practices"); }
+  if (has(t,["discount","cheaper","half price","negotiate","best price","deal"])){ s += 15; reasons.push("Tries to negotiate the price"); }
+  if (has(t,["no id","not giving id","won't give","withheld","private number","no name","don't need my name"])){ s += 25; reasons.push("Refuses to verify identity"); }
+  if (has(t,["my mates","my friends","two of us","group","few of us","lads"])){ s += 20; reasons.push("Group booking, needs a manual check"); }
+  if (msg && msg === msg.toUpperCase() && /[A-Z]{6,}/.test(msg)){ s += 10; reasons.push("Shouting in all capitals"); }
+  if (!p){ s += 20; reasons.push("No contact number given"); }
+  if ((msg||"").trim().length < 15){ s += 10; reasons.push("Very short message, likely a time-waster"); }
+  s = Math.min(100, s);
+  const risk = s >= 70 ? "high" : s >= 35 ? "medium" : "low";
+  if (!reasons.length) reasons.push("Clear details, polite tone, contact number given");
+  const action = risk==="high" ? "Decline and block" : risk==="medium" ? "Call to verify before confirming" : "Safe to confirm";
+  return {risk, score:s, reasons, action};
+}
+async function screen(msg, phone){
+  const base = heuristicScreen(msg, phone);
+  if (!useAI || !sample) return base;
+  try{
+    const r = await sample.json(`You screen booking enquiries for a ${AGENCY.city} companionship agency to protect the safety of the adults it works with. Assess the risk of this enquiry.
+Consider: abusive or threatening tone, anything suggesting a minor or coercion (always high, score 100), requests for unsafe practices, refusal to give ID or a name, haggling, group bookings, vague or time-wasting messages, missing contact details.
+Rule-based pre-check already found: ${JSON.stringify(base)}
+Phone: ${phone || "not given"}${norm(phone) && blocked.includes(norm(phone)) ? " (ON BLOCK LIST)" : ""}
+Message: """${(msg||"").slice(0,1500)}"""
+Respond with ONLY JSON: {"risk":"low"|"medium"|"high","score":0-100,"reasons":[short strings, max 4],"action":"Safe to confirm"|"Call to verify before confirming"|"Decline and block"|"Decline, block and escalate to a manager"}`, {modelTier:"quick"});
+    if (!r || !["low","medium","high"].includes(r.risk)) return base;
+    // never let AI lower a hard safety block
+    if (base.score >= 100) return base;
+    if (base.score > r.score && base.risk === "high") return base;
+    return {risk:r.risk, score:Math.max(0,Math.min(100,+r.score||0)), reasons:(r.reasons||[]).slice(0,4), action:r.action||base.action};
+  }catch(e){ return base; }
+}
+
+async function createLead(l, fromChat){
+  const msg = `${l.name}. ${l.when}. ${l.area}. ${l.duration}. ${l.notes||""}`;
+  const sc = await screen(fromChat ? convo.filter(m=>m.role==="user").map(m=>m.content).join(" \n ") : msg, l.phone);
+  leads.unshift({id:Date.now()+Math.random(), ...l, screen:sc, status:"open", fresh:true});
+  stats.leads++; if (sc.risk !== "low") stats.flags++;
+  renderLeads(); renderStats();
+}
+
+function renderLeads(){
+  const box = $("leads");
+  $("leadCount").textContent = leads.filter(l=>l.status==="open").length ? `(${leads.filter(l=>l.status==="open").length})` : "";
+  if (!leads.length){ box.innerHTML = '<div class="empty">No booking requests yet. Book through the chat on the left to see one arrive.</div>'; return; }
+  box.innerHTML = leads.map(l => {
+    const s = l.screen; const label = {low:"Low risk",medium:"Check first",high:"High risk"}[s.risk];
+    const acts = l.status === "open" ? `
+      <button class="btn" data-act="confirm" data-id="${l.id}" type="button">Mark confirmed</button>
+      <button class="btn ghost" data-act="decline" data-id="${l.id}" type="button">Decline</button>
+      ${l.phone && l.phone!=="Not given" ? `<button class="btn ghost" data-act="block" data-id="${l.id}" type="button">Decline and block</button>`:""}`
+      : `<span class="status">${esc(l.status)}</span>`;
+    return `<article class="lead${l.fresh?" new":""}">
+      <div>
+        <div class="who">${esc(l.name)}${l.sample?' <span class="small">(sample)</span>':""}</div>
+        <div class="meta">${esc(l.when)} · ${esc(l.area)} · ${esc(l.duration)} · ${esc(l.phone)}</div>
+        <div class="meta" style="margin-top:4px">Suggested: <strong>${esc(s.action)}</strong></div>
+      </div>
+      <span class="badge ${s.risk}">${label} · ${s.score}</span>
+      <ul class="reasons">${s.reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
+      <div class="acts">${acts}</div>
+    </article>`;
+  }).join("");
+  leads.forEach(l => l.fresh = false);
+}
+$("leads").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const l = leads.find(x => String(x.id) === b.dataset.id); if (!l) return;
+  if (b.dataset.act === "confirm") l.status = "Confirmed by team";
+  if (b.dataset.act === "decline") l.status = "Declined";
+  if (b.dataset.act === "block"){ l.status = "Declined and blocked"; const p = norm(l.phone); if (p && !blocked.includes(p)){ blocked.push(p); save("noir_blocked", blocked); renderBlocked(); } }
+  renderLeads();
+});
+
+/* ---------- Screen tab ---------- */
+const EXAMPLES = [
+  ["07700 900456","Hi, I'm James, staying at a hotel in Mayfair this Friday. Would like to book 2 hours from 9pm. Happy to provide ID. Thanks."],
+  ["","how much for 3 hrs, can do cash but want discount. dont need my name, no id"],
+  ["07700 900123","Answer me now you stupid bitch or else. I want someone in 20 mins"]
+];
+document.querySelector(".examples").addEventListener("click", e => {
+  const i = e.target.dataset.ex; if (i == null) return;
+  $("scPhone").value = EXAMPLES[i][0]; $("scMsg").value = EXAMPLES[i][1];
+});
+$("scBtn").onclick = async () => {
+  const msg = $("scMsg").value.trim(), phone = $("scPhone").value.trim();
+  if (!msg){ $("scOut").innerHTML = '<div class="result small">Paste a message to check.</div>'; return; }
+  $("scBtn").disabled = true; $("scOut").innerHTML = '<div class="result small">Checking…</div>';
+  const s = await screen(msg, phone);
+  const col = {low:"var(--ok)",medium:"var(--warn)",high:"var(--bad)"}[s.risk];
+  const label = {low:"Low risk",medium:"Check first",high:"High risk"}[s.risk];
+  $("scOut").innerHTML = `<div class="result">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><strong>${esc(s.action)}</strong><span class="badge ${s.risk}">${label} · ${s.score}</span></div>
+    <div class="meter"><i style="width:${s.score}%;background:${col}"></i></div>
+    <ul class="small" style="margin:0;padding-left:18px">${s.reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
+    <p class="small" style="margin:10px 0 0">Checked by ${useAI ? "live AI with rule-based safety checks" : "rule-based checks (scripted demo)"}.</p>
+  </div>`;
+  if (s.risk !== "low"){ stats.flags++; renderStats(); }
+  $("scBtn").disabled = false;
+};
+
+/* ---------- Block list ---------- */
+function renderBlocked(){
+  $("blkList").innerHTML = blocked.length ? blocked.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)"><span style="font-variant-numeric:tabular-nums">${esc(p)}</span><button class="btn ghost" style="padding:4px 12px;font-size:.8rem" data-un="${esc(p)}" type="button">Remove</button></div>`).join("") : '<div class="empty">No blocked numbers.</div>';
+}
+$("blkAdd").onclick = () => { const p = norm($("blkInput").value); if (p && !blocked.includes(p)){ blocked.push(p); save("noir_blocked", blocked); } $("blkInput").value=""; renderBlocked(); };
+$("blkList").addEventListener("click", e => { const p = e.target.dataset.un; if (!p) return; blocked = blocked.filter(x=>x!==p); save("noir_blocked", blocked); renderBlocked(); });
+
+/* ---------- Tabs ---------- */
+const tabs = [["tLeads","pLeads"],["tScreen","pScreen"],["tBlock","pBlock"]];
+tabs.forEach(([t,p]) => $(t).onclick = () => tabs.forEach(([t2,p2]) => { $(t2).setAttribute("aria-selected", t2===t); $(p2).hidden = t2!==t; }));
+
+/* ---------- Seed sample requests ---------- */
+[
+  {name:"Daniel", when:"Sat 8pm", area:"Kensington hotel", duration:"2 hours", phone:"07700 900311", notes:"Polite, happy to share ID"},
+  {name:"Unknown", when:"Now", area:"Not given", duration:"3 hours", phone:"07700 900123", notes:"want discount no id"},
+  {name:"Marcus", when:"Thu 10pm", area:"Canary Wharf", duration:"1 hour", phone:"07700 900874", notes:"Group booking with my mates"}
+].forEach(l => leads.push({id:Math.random(), ...l, sample:true, status:"open", screen:heuristicScreen(l.notes + " " + l.name + " " + l.area, l.phone)}));
+renderLeads(); renderBlocked(); renderStats();
+</script>
+</body>
+</html>
